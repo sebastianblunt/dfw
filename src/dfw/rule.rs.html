@@ -101,6 +101,21 @@
 <span id="101">101</span>
 <span id="102">102</span>
 <span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! TODO: write documentation</span>
 
@@ -122,6 +137,10 @@
     <span class="kw">pub</span> <span class="ident">source_address</span>: <span class="ident">String</span>,
     <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>))]</span>
     <span class="kw">pub</span> <span class="ident">destination_address</span>: <span class="ident">String</span>,
+    <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">source_address_v6</span>: <span class="ident">String</span>,
+    <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">destination_address_v6</span>: <span class="ident">String</span>,
     <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>))]</span>
     <span class="kw">pub</span> <span class="ident">protocol</span>: <span class="ident">String</span>,
     <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>))]</span>
@@ -156,16 +175,27 @@
         }
 
         <span class="comment">// Handle `ip` matches</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">source_address</span>.<span class="ident">is_some</span>() <span class="op">||</span> <span class="self">self</span>.<span class="ident">destination_address</span>.<span class="ident">is_some</span>() {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">source_address</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">source_address</span> {
             <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;ip&quot;</span>.<span class="ident">to_owned</span>());
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">source_address</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">source_address</span> {
-                <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;saddr&quot;</span>.<span class="ident">to_owned</span>());
-                <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">source_address</span>.<span class="ident">to_owned</span>());
-            }
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">destination_address</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">destination_address</span> {
-                <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;daddr&quot;</span>.<span class="ident">to_owned</span>());
-                <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">destination_address</span>.<span class="ident">to_owned</span>());
-            }
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;saddr&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">source_address</span>.<span class="ident">to_owned</span>());
+        }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">destination_address</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">destination_address</span> {
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;ip&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;daddr&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">destination_address</span>.<span class="ident">to_owned</span>());
+        }
+
+        <span class="comment">// Handle `ip6` matches</span>
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">source_address</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">source_address_v6</span> {
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;ip6&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;saddr&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">source_address</span>.<span class="ident">to_owned</span>());
+        }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">destination_address</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">destination_address_v6</span> {
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;ip6&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="string">&quot;daddr&quot;</span>.<span class="ident">to_owned</span>());
+            <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">destination_address</span>.<span class="ident">to_owned</span>());
         }
 
         <span class="comment">// Handle interface-matches</span>

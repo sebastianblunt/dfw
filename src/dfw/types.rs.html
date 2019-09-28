@@ -796,6 +796,36 @@
 <span id="796">796</span>
 <span id="797">797</span>
 <span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 - 2019 Pit Kleyersburg &lt;pitkley@googlemail.com&gt;</span>
 <span class="comment">//</span>
@@ -1193,7 +1223,7 @@
     <span class="doccomment">/// Specific external network interface to target.</span>
     <span class="kw">pub</span> <span class="ident">external_network_interface</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Source CIDRs to which incoming traffic should be restricted.</span>
+    <span class="doccomment">/// Source CIDRs (IPv4) to which incoming traffic should be restricted.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This can be:</span>
     <span class="doccomment">///</span>
@@ -1208,12 +1238,42 @@
     <span class="doccomment">/// All of the following are legal TOML fragments:</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```toml</span>
-    <span class="doccomment">/// source_cidr = &quot;127.0.0.0/8&quot;</span>
+    <span class="doccomment">/// source_cidr_v4 = &quot;127.0.0.0/8&quot;</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// source_cidr = [&quot;127.0.0.0/8&quot;, &quot;192.0.2.1/32&quot;]</span>
+    <span class="doccomment">/// source_cidr _v4= [&quot;127.0.0.0/8&quot;, &quot;192.0.2.1/32&quot;]</span>
     <span class="doccomment">/// ```</span>
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">default</span>, <span class="ident">deserialize_with</span> <span class="op">=</span> <span class="string">&quot;option_string_or_seq_string&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">source_cidr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;&gt;</span>,
+    <span class="attribute">#[<span class="ident">serde</span>(
+        <span class="ident">default</span>,
+        <span class="ident">deserialize_with</span> <span class="op">=</span> <span class="string">&quot;option_string_or_seq_string&quot;</span>,
+        <span class="ident">alias</span> <span class="op">=</span> <span class="string">&quot;source_cidr&quot;</span>
+    )]</span>
+    <span class="kw">pub</span> <span class="ident">source_cidr_v4</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;&gt;</span>,
+
+    <span class="doccomment">/// Source CIDRs (IPv6) to which incoming traffic should be restricted.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This can be:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * a single string</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * a list of strings</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// There is no validation whether the provided CIDRs are actually valid.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// All of the following are legal TOML fragments:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```toml</span>
+    <span class="doccomment">/// source_cidr_v6 = &quot;fe80::/10&quot;</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// source_cidr_v6 = [&quot;fe80::/10&quot;, &quot;2001:db8::/32&quot;]</span>
+    <span class="doccomment">/// ```</span>
+    <span class="attribute">#[<span class="ident">serde</span>(
+        <span class="ident">default</span>,
+        <span class="ident">deserialize_with</span> <span class="op">=</span> <span class="string">&quot;option_string_or_seq_string&quot;</span>,
+        <span class="ident">alias</span> <span class="op">=</span> <span class="string">&quot;source_cidr&quot;</span>
+    )]</span>
+    <span class="kw">pub</span> <span class="ident">source_cidr_v6</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;&gt;</span>,
 }
 
 <span class="doccomment">/// Struct to hold a port definition to expose on the host/between containers.</span>
