@@ -13,18 +13,19 @@ use crate::nftables::{self, Family, Hook, RuleVerdict, Type};
 use crate::rule::*;
 use crate::types::*;
 use failure::{bail, format_err, ResultExt};
+use shiplift::Docker;
 use shiplift::builder::{ContainerFilter as ContainerFilterShiplift, ContainerListOptions};
 use shiplift::rep::Container;
 use shiplift::rep::{NetworkContainerDetails, NetworkDetails};
-use shiplift::Docker;
 use slog::Logger;
 use slog::{debug, info, o, trace};
 use std::collections::HashMap as Map;
-use std::io::prelude::*;
 use std::io::BufWriter;
+use std::io::prelude::*;
 use std::process::Command;
 use tempfile;
 use time;
+use tokio::prelude::Future;
 
 const NF_IP_PRI_NAT_DST: i16 = -100;
 const NF_IP_PRI_FILTER: i16 = 0;
@@ -252,7 +253,7 @@ impl Process for Defaults {
         // Enforce policy for default Docker-bridge (usually docker0) to access host-resources
         if let Some(bridge_network) = ctx.network_map.get("bridge") {
             if let Some(bridge_name) = bridge_network
-                .Options
+                .options
                 .as_ref()
                 .ok_or_else(|| format_err!("couldn't get network options"))?
                 .get("com.docker.network.bridge.name")
@@ -347,9 +348,9 @@ impl Process for ContainerToContainerRule {
         trace!(ctx.logger, "Got network";
                     o!("network_name" => &self.network,
                         "network" => format!("{:?}", network)));
-        let bridge_name = get_bridge_name(&network.Id)?;
+        let bridge_name = get_bridge_name(&network.id)?;
         trace!(ctx.logger, "Got bridge name";
-                    o!("network_name" => &network.Name,
+                    o!("network_name" => &network.name,
                         "bridge_name" => &bridge_name));
 
         nft_rule
@@ -361,18 +362,18 @@ impl Process for ContainerToContainerRule {
                 ctx.docker,
                 &ctx.container_map,
                 src_container,
-                &network.Id,
+                &network.id,
             )? {
                 Some(src_network) => src_network,
                 None => return Ok(None),
             };
             trace!(ctx.logger, "Got source network";
-                        o!("network_name" => &network.Name,
+                        o!("network_name" => &network.name,
                             "src_network" => format!("{:?}", src_network)));
 
-            let bridge_name = get_bridge_name(&network.Id)?;
+            let bridge_name = get_bridge_name(&network.id)?;
             trace!(ctx.logger, "Got bridge name";
-                        o!("network_name" => &network.Name,
+                        o!("network_name" => &network.name,
                             "bridge_name" => &bridge_name));
 
             nft_rule
@@ -380,7 +381,7 @@ impl Process for ContainerToContainerRule {
                 .out_interface(&bridge_name)
                 .source_address(
                     src_network
-                        .IPv4Address
+                        .ipv4_address
                         .split('/')
                         .next()
                         .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -392,23 +393,23 @@ impl Process for ContainerToContainerRule {
                 ctx.docker,
                 &ctx.container_map,
                 dst_container,
-                &network.Id,
+                &network.id,
             )? {
                 Some(dst_network) => dst_network,
                 None => return Ok(None),
             };
             trace!(ctx.logger, "Got destination network";
-                        o!("network_name" => &network.Name,
+                        o!("network_name" => &network.name,
                             "dst_network" => format!("{:?}", dst_network)));
 
-            let bridge_name = get_bridge_name(&network.Id)?;
+            let bridge_name = get_bridge_name(&network.id)?;
             trace!(ctx.logger, "Got bridge name";
-                        o!("network_name" => &network.Name,
+                        o!("network_name" => &network.name,
                             "bridge_name" => &bridge_name));
 
             nft_rule.out_interface(&bridge_name).destination_address(
                 dst_network
-                    .IPv4Address
+                    .ipv4_address
                     .split('/')
                     .next()
                     .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -447,9 +448,9 @@ impl Process for ContainerToWiderWorld {
                           "external_network_interface" => external_network_interface,
                           "default_policy" => &self.default_policy));
                 for network in ctx.network_map.values() {
-                    let bridge_name = get_bridge_name(&network.Id)?;
+                    let bridge_name = get_bridge_name(&network.id)?;
                     trace!(ctx.logger, "Got bridge name";
-                           o!("network_name" => &network.Name,
+                           o!("network_name" => &network.name,
                               "bridge_name" => &bridge_name));
 
                     let rule = RuleBuilder::default()
@@ -488,29 +489,29 @@ impl Process for ContainerToWiderWorldRule {
                         ctx.docker,
                         &ctx.container_map,
                         src_container,
-                        &network.Id,
+                        &network.id,
                     )? {
                         trace!(ctx.logger, "Got source network";
-                                   o!("network_name" => &network.Name,
+                                   o!("network_name" => &network.name,
                                       "src_network" => format!("{:?}", src_network)));
 
-                        let bridge_name = get_bridge_name(&network.Id)?;
+                        let bridge_name = get_bridge_name(&network.id)?;
                         trace!(ctx.logger, "Got bridge name";
-                                   o!("network_name" => &network.Name,
+                                   o!("network_name" => &network.name,
                                       "bridge_name" => &bridge_name));
 
                         nft_rule.in_interface(&bridge_name).source_address(
                             src_network
-                                .IPv4Address
+                                .ipv4_address
                                 .split('/')
                                 .next()
                                 .ok_or_else(|| format_err!("IPv4 address is empty"))?,
                         );
                     }
                 } else {
-                    let bridge_name = get_bridge_name(&network.Id)?;
+                    let bridge_name = get_bridge_name(&network.id)?;
                     trace!(ctx.logger, "Got bridge name";
-                               o!("network_name" => &network.Name,
+                               o!("network_name" => &network.name,
                                   "bridge_name" => &bridge_name));
 
                     nft_rule.in_interface(&bridge_name);
@@ -567,9 +568,9 @@ impl Process for ContainerToHost {
 
         // Default policy
         for network in ctx.network_map.values() {
-            let bridge_name = get_bridge_name(&network.Id)?;
+            let bridge_name = get_bridge_name(&network.id)?;
             trace!(ctx.logger, "Got bridge name";
-                   o!("network_name" => &network.Name,
+                   o!("network_name" => &network.name,
                       "bridge_name" => &bridge_name));
 
             let rule = RuleBuilder::default()
@@ -601,12 +602,12 @@ impl Process for ContainerToHostRule {
             None => return Ok(None),
         };
         trace!(ctx.logger, "Got network";
-                   o!("network_name" => &network.Name,
+                   o!("network_name" => &network.name,
                       "network" => format!("{:?}", network)));
 
-        let bridge_name = get_bridge_name(&network.Id)?;
+        let bridge_name = get_bridge_name(&network.id)?;
         trace!(ctx.logger, "Got bridge name";
-                   o!("network_name" => &network.Name,
+                   o!("network_name" => &network.name,
                       "bridge_name" => &bridge_name));
 
         nft_rule.in_interface(&bridge_name);
@@ -616,14 +617,14 @@ impl Process for ContainerToHostRule {
                 ctx.docker,
                 &ctx.container_map,
                 src_container,
-                &network.Id,
+                &network.id,
             )? {
                 trace!(ctx.logger, "Got source network";
-                           o!("network_name" => &network.Name,
+                           o!("network_name" => &network.name,
                               "src_network" => format!("{:?}", src_network)));
                 nft_rule.source_address(
                     src_network
-                        .IPv4Address
+                        .ipv4_address
                         .split('/')
                         .next()
                         .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -689,12 +690,12 @@ impl Process for WiderWorldToContainerRule {
                 None => return Ok(None),
             };
             trace!(ctx.logger, "Got network";
-                   o!("network_name" => &network.Name,
+                   o!("network_name" => &network.name,
                       "network" => format!("{:?}", network)));
 
-            let bridge_name = get_bridge_name(&network.Id)?;
+            let bridge_name = get_bridge_name(&network.id)?;
             trace!(ctx.logger, "Got bridge name";
-                   o!("network_name" => &network.Name,
+                   o!("network_name" => &network.name,
                       "bridge_name" => &bridge_name));
 
             nft_forward_rule.out_interface(&bridge_name);
@@ -703,15 +704,15 @@ impl Process for WiderWorldToContainerRule {
                 ctx.docker,
                 &ctx.container_map,
                 &self.dst_container,
-                &network.Id,
+                &network.id,
             )? {
                 trace!(ctx.logger, "Got destination network";
-                       o!("network_name" => &network.Name,
+                       o!("network_name" => &network.name,
                           "dst_network" => format!("{:?}", dst_network)));
 
                 nft_forward_rule.destination_address(
                     dst_network
-                        .IPv4Address
+                        .ipv4_address
                         .split('/')
                         .next()
                         .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -726,7 +727,7 @@ impl Process for WiderWorldToContainerRule {
                 nft_dnat_rule.dnat(&format!(
                     "{}:{}",
                     dst_network
-                        .IPv4Address
+                        .ipv4_address
                         .split('/')
                         .next()
                         .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -967,12 +968,12 @@ impl Process for ContainerDNATRule {
             if let Some(ref network) = self.src_network {
                 if let Some(network) = ctx.network_map.get(network) {
                     trace!(ctx.logger, "Got network";
-                               o!("network_name" => &network.Name,
+                               o!("network_name" => &network.name,
                                   "network" => format!("{:?}", network)));
 
-                    let bridge_name = get_bridge_name(&network.Id)?;
+                    let bridge_name = get_bridge_name(&network.id)?;
                     trace!(ctx.logger, "Got bridge name";
-                               o!("network_name" => &network.Name,
+                               o!("network_name" => &network.name,
                                   "bridge_name" => &bridge_name));
 
                     nft_rule.in_interface(&bridge_name);
@@ -982,20 +983,20 @@ impl Process for ContainerDNATRule {
                             ctx.docker,
                             &ctx.container_map,
                             src_container,
-                            &network.Id,
+                            &network.id,
                         )? {
                             trace!(ctx.logger, "Got source network";
-                                       o!("network_name" => &network.Name,
+                                       o!("network_name" => &network.name,
                                           "src_network" => format!("{:?}", src_network)));
 
-                            let bridge_name = get_bridge_name(&network.Id)?;
+                            let bridge_name = get_bridge_name(&network.id)?;
                             trace!(ctx.logger, "Got bridge name";
-                                       o!("network_name" => &network.Name,
+                                       o!("network_name" => &network.name,
                                           "bridge_name" => &bridge_name));
 
                             nft_rule.in_interface(&bridge_name).source_address(
                                 src_network
-                                    .IPv4Address
+                                    .ipv4_address
                                     .split('/')
                                     .next()
                                     .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -1013,18 +1014,18 @@ impl Process for ContainerDNATRule {
                 ctx.docker,
                 &ctx.container_map,
                 &self.dst_container,
-                &network.Id,
+                &network.id,
             )? {
                 Some(dst_network) => dst_network,
                 None => return Ok(None),
             };
             trace!(ctx.logger, "Got destination network";
-                       o!("network_name" => &network.Name,
+                       o!("network_name" => &network.name,
                           "dst_network" => format!("{:?}", dst_network)));
 
-            let bridge_name = get_bridge_name(&network.Id)?;
+            let bridge_name = get_bridge_name(&network.id)?;
             trace!(ctx.logger, "Got bridge name";
-                       o!("network_name" => &network.Name,
+                       o!("network_name" => &network.name,
                           "bridge_name" => &bridge_name));
 
             nft_rule.out_interface(&bridge_name);
@@ -1037,7 +1038,7 @@ impl Process for ContainerDNATRule {
             nft_rule.dnat(&format!(
                 "{}:{}",
                 dst_network
-                    .IPv4Address
+                    .ipv4_address
                     .split('/')
                     .next()
                     .ok_or_else(|| format_err!("IPv4 address is empty"))?,
@@ -1088,7 +1089,7 @@ impl<'a> ProcessContext<'a> {
                 .filter(vec![ContainerFilterShiplift::Status("running".to_owned())])
                 .build(),
         };
-        let containers = docker.containers().list(&container_list_options)?;
+        let containers = docker.containers().list(&container_list_options).wait()?;
         debug!(logger, "Got list of containers";
                o!("containers" => format!("{:#?}", containers)));
 
@@ -1097,7 +1098,7 @@ impl<'a> ProcessContext<'a> {
         trace!(logger, "Got map of containers";
                o!("container_map" => format!("{:#?}", container_map)));
 
-        let networks = docker.networks().list(&Default::default())?;
+        let networks = docker.networks().list(&Default::default()).wait()?;
         debug!(logger, "Got list of networks";
                o!("networks" => format!("{:#?}", networks)));
 
@@ -1223,9 +1224,10 @@ fn get_network_for_container(
         Some(container) => match docker
             .networks()
             .get(network_id)
-            .inspect()?
-            .Containers
-            .get(&container.Id)
+            .inspect()
+            .wait()?
+            .containers
+            .get(&container.id)
         {
             Some(network) => Some(network.clone()),
             None => None,
@@ -1237,7 +1239,7 @@ fn get_network_for_container(
 fn get_container_map(containers: &[Container]) -> Result<Option<Map<String, Container>>> {
     let mut container_map: Map<String, Container> = Map::new();
     for container in containers {
-        for name in &container.Names {
+        for name in &container.names {
             container_map.insert(
                 name.clone().trim_start_matches('/').to_owned(),
                 container.clone(),
@@ -1255,7 +1257,7 @@ fn get_container_map(containers: &[Container]) -> Result<Option<Map<String, Cont
 fn get_network_map(networks: &[NetworkDetails]) -> Result<Option<Map<String, NetworkDetails>>> {
     let mut network_map: Map<String, NetworkDetails> = Map::new();
     for network in networks {
-        network_map.insert(network.Name.clone(), network.clone());
+        network_map.insert(network.name.clone(), network.clone());
     }
 
     if network_map.is_empty() {

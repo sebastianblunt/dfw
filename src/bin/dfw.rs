@@ -22,6 +22,7 @@ use sloggers::types::Severity;
 use sloggers::Build;
 use std::thread;
 use std::time::{Duration, Instant};
+use tokio::prelude::{Future, Stream};
 
 mod errors {
     use failure::Error;
@@ -132,8 +133,9 @@ fn spawn_event_monitor(
                         .filter(vec![EventFilter::Type(EventFilterType::Container)])
                         .build(),
                 )
-                .unwrap()
+                .wait()
             {
+                let event = event.unwrap();
                 trace!(logger, "Received event";
                        o!("event" => format!("{:?}", &event)));
                 match event.status {
@@ -178,7 +180,7 @@ fn run<'a>(
     };
     // Check if the docker instance is reachable
     trace!(root_logger, "Pinging docker");
-    docker.ping()?;
+    docker.ping().wait()?;
 
     // Create a dummy channel
     let load_interval = value_t!(matches.value_of("load-interval"), u64)?;
